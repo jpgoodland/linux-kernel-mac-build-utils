@@ -303,7 +303,25 @@ static inline __attribute__((unused)) ssize_t copy_file_range(int fd_in, off_t *
 #define _HOST_ENDIAN_H
 
 #include <libkern/OSByteOrder.h>
-#include <sys/endian.h>
+#include <machine/endian.h>
+
+#ifndef __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN 1234
+#endif
+
+#ifndef __BIG_ENDIAN
+#define __BIG_ENDIAN 4321
+#endif
+
+#ifndef __BYTE_ORDER
+#if defined(BYTE_ORDER)
+#define __BYTE_ORDER BYTE_ORDER
+#elif defined(__BYTE_ORDER__)
+#define __BYTE_ORDER __BYTE_ORDER__
+#else
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#endif
+#endif
 
 #ifndef htobe16
 #define htobe16(x) OSSwapHostToBigInt16(x)
