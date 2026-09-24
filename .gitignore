@@ -1,0 +1,41 @@
+# ==================================================
+# Linux Kernel macOS Build Utils - .gitignore
+# ==================================================
+
+# Downloaded Linux kernel source working directories
+linux-*/
+linux/
+
+# Downloaded kernel source archives and signature files
+*.tar.xz
+*.tar.gz
+*.tar.bz2
+*.tar
+*.sign
+
+# Test executables and build artifacts
+test_host_headers_bin
+tests/*_bin
+tests/test_host_headers_bin
+*.o
+
+# Backup files generated during configuration
+*.bak
+*.bak.*
+*~
+*.orig
+*.rej
+
+# macOS system metadata files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor & IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo

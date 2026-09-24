@@ -31,8 +31,12 @@ Or specify release categories / versions directly via CLI options:
 ./kernel-get.sh -v 7.2.7
 ```
 
-### 3. Make macOS In-Tree Fixes (if necessary)
-Refer to [MACOS_BUILD_GUIDE.md](file:///Users/jpgoodland/workspace/linux-kernel-mac-build-utils/MACOS_BUILD_GUIDE.md) for details on APFS case-insensitivity and BSD `sed` fixes.
+### 3. Apply macOS In-Tree Patches
+Apply the APFS case-insensitivity and BSD tool compatibility fixes automatically to the extracted kernel tree:
+```bash
+./kernel-patch.sh linux-7.2.7
+```
+*(Refer to [MACOS_BUILD_GUIDE.md](file:///Users/jpgoodland/workspace/linux-kernel-mac-build-utils/MACOS_BUILD_GUIDE.md) for full architectural explanations of these patches.)*
 
 ### 4. Build Kernel Image with LLVM
 Use [build.sh](file:///Users/jpgoodland/workspace/linux-kernel-mac-build-utils/build.sh) to build the kernel using LLVM and macOS host compatibility shims:
@@ -56,7 +60,7 @@ Execute the automated test suite covering host compatibility headers, CLI utilit
 
 The test suite includes:
 - **`tests/test_host_headers.c`**: Verifies all Darwin `<libkern>` shims, ELF relocations, byte-swapping macros, and integer type definitions under Clang.
-- **`tests/test_scripts.sh`**: Validates syntax, command-line arguments, release manifest queries, and dry-run flows across `mac-configure.sh`, `kernel-get.sh`, and `build.sh`.
+- **`tests/test_scripts.sh`**: Validates syntax, command-line arguments, release manifest queries, patching logic, and dry-run flows across `mac-configure.sh`, `kernel-get.sh`, `kernel-patch.sh`, and `build.sh`.
 
 ## Continuous Integration (CI)
 GitHub Actions CI runs on Apple Silicon runners (`macos-14` / ARM64) configured in [`.github/workflows/macos-ci.yml`](file:///.github/workflows/macos-ci.yml) to automatically validate all builds, unit tests, and kernel configuration (`defconfig`) on every push and pull request.

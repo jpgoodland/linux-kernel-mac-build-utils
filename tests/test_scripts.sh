@@ -32,6 +32,7 @@ echo "=================================================="
 test_syntax() {
     bash -n "$REPO_ROOT/build.sh" && \
     bash -n "$REPO_ROOT/kernel-get.sh" && \
+    bash -n "$REPO_ROOT/kernel-patch.sh" && \
     bash -n "$REPO_ROOT/mac-configure.sh" && \
     bash -n "$REPO_ROOT/tests/test_scripts.sh"
 }
@@ -105,7 +106,31 @@ test_build_help() {
 }
 run_test "build.sh --help output" test_build_help
 
-# 8. Test host-include directory structure
+# 8. Test kernel-patch.sh on mock kernel directory
+test_kernel_patch() {
+    local tmp_dir
+    tmp_dir=$(mktemp -d "/tmp/kp_test_XXXXXX")
+    mkdir -p "$tmp_dir/scripts" "$tmp_dir/arch/arm64/tools"
+    touch "$tmp_dir/Makefile"
+    echo "kbuild-file = \$(or \$(wildcard \$(src)/Kbuild),\$(src)/Makefile)" > "$tmp_dir/scripts/Kbuild.include"
+    echo 'sed "s/.*HWCAP\([0-9]*\)_\([A-Z0-9_]\+\).*/#define KERNEL_HWCAP_\2\t__khwcap\1_feature(\2)/"' > "$tmp_dir/arch/arm64/tools/gen-kernel-hwcaps.sh"
+    
+    "$REPO_ROOT/kernel-patch.sh" "$tmp_dir" >/dev/null 2>&1
+    
+    local patched_kbuild=false
+    local patched_hwcaps=false
+    if grep -q "Kbuild/." "$tmp_dir/scripts/Kbuild.include"; then
+        patched_kbuild=true
+    fi
+    if ! grep -q '\\+' "$tmp_dir/arch/arm64/tools/gen-kernel-hwcaps.sh"; then
+        patched_hwcaps=true
+    fi
+    rm -rf "$tmp_dir"
+    $patched_kbuild && $patched_hwcaps
+}
+run_test "kernel-patch.sh mock kernel patching" test_kernel_patch
+
+# 9. Test host-include directory structure
 test_host_include_structure() {
     [ -f "$REPO_ROOT/host-include/host_fix.h" ] && \
     [ -f "$REPO_ROOT/host-include/elf.h" ] && \

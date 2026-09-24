@@ -130,22 +130,30 @@ done
 
 # Interactive architecture selection if not provided via flags
 if [ -z "$ARCH_VAL" ]; then
-    echo "=================================================="
-    echo "       Linux Kernel Build Configuration           "
-    echo "=================================================="
-    echo "Select target architecture:"
-    echo "  1) x86_64"
-    echo "  2) ARM (arm64 / AArch64)"
-    echo "  3) ARM (32-bit)"
-    read -rp "Enter choice [1-3] (default: 1): " arch_choice
-    case "$arch_choice" in
-        2) ARCH_VAL="arm64" ;;
-        3) ARCH_VAL="arm" ;;
-        1|"") ARCH_VAL="x86_64" ;;
-        *)
-            ARCH_VAL="$arch_choice"
-            ;;
-    esac
+    if [ -t 0 ]; then
+        echo "=================================================="
+        echo "       Linux Kernel Build Configuration           "
+        echo "=================================================="
+        echo "Select target architecture:"
+        echo "  1) x86_64"
+        echo "  2) ARM (arm64 / AArch64)"
+        echo "  3) ARM (32-bit)"
+        read -rp "Enter choice [1-3] (default: 1): " arch_choice || arch_choice=""
+        case "$arch_choice" in
+            2) ARCH_VAL="arm64" ;;
+            3) ARCH_VAL="arm" ;;
+            1|"") ARCH_VAL="x86_64" ;;
+            *)
+                ARCH_VAL="$arch_choice"
+                ;;
+        esac
+    else
+        HOST_ARCH=$(uname -m)
+        case "$HOST_ARCH" in
+            arm64|aarch64) ARCH_VAL="arm64" ;;
+            *) ARCH_VAL="x86_64" ;;
+        esac
+    fi
 fi
 
 # Normalize architecture string
@@ -167,9 +175,13 @@ esac
 
 # Interactive cores selection if not provided via flags
 if [ -z "$CORES_VAL" ]; then
-    read -rp "Enter number of cores to use [1-$DETECTED_CORES] (default: $DETECTED_CORES): " user_cores
-    if [ -n "$user_cores" ] && [[ "$user_cores" =~ ^[0-9]+$ ]]; then
-        CORES_VAL="$user_cores"
+    if [ -t 0 ]; then
+        read -rp "Enter number of cores to use [1-$DETECTED_CORES] (default: $DETECTED_CORES): " user_cores || user_cores=""
+        if [ -n "$user_cores" ] && [[ "$user_cores" =~ ^[0-9]+$ ]]; then
+            CORES_VAL="$user_cores"
+        else
+            CORES_VAL="$DETECTED_CORES"
+        fi
     else
         CORES_VAL="$DETECTED_CORES"
     fi
@@ -195,13 +207,17 @@ if [ -n "$KERNEL_DIR" ]; then
     fi
 elif [ -f "Makefile" ]; then
     KERNEL_DIR="."
-elif [ -d "linux-7.2" ] && [ -f "linux-7.2/Makefile" ]; then
-    KERNEL_DIR="linux-7.2"
-elif [ -f "../Makefile" ]; then
-    KERNEL_DIR=".."
 else
-    echo "Warning: Could not locate kernel Makefile in current directory or linux-7.2."
-    KERNEL_DIR="."
+    # Auto-detect extracted linux-* directory with a Makefile
+    CANDIDATE=$(find . -maxdepth 1 -type d -name "linux-*" -exec test -f "{}/Makefile" ';' -print | head -n 1)
+    if [ -n "$CANDIDATE" ]; then
+        KERNEL_DIR="$CANDIDATE"
+    elif [ -f "../Makefile" ]; then
+        KERNEL_DIR=".."
+    else
+        echo "Warning: Could not locate kernel Makefile in current directory or any linux-* subdirectory."
+        KERNEL_DIR="."
+    fi
 fi
 
 # Set host include flags for macOS compatibility (e.g., elf.h support)

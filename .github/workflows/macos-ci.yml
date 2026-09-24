@@ -19,7 +19,7 @@ jobs:
 
       - name: Make scripts executable
         run: |
-          chmod +x mac-configure.sh kernel-get.sh build.sh tests/run_tests.sh tests/test_scripts.sh
+          chmod +x mac-configure.sh kernel-get.sh kernel-patch.sh build.sh tests/run_tests.sh tests/test_scripts.sh
 
       - name: Assess & configure macOS build environment
         run: |
@@ -33,7 +33,7 @@ jobs:
           fi
           ./tests/run_tests.sh
 
-      - name: Integration Test - Kernel Fetch & Defconfig
+      - name: Integration Test - Kernel Fetch, Patch, & Defconfig
         run: |
           if [ -f "$HOME/.bash_profile" ]; then
             source "$HOME/.bash_profile"
@@ -46,18 +46,10 @@ jobs:
           echo "Extracted Kernel Directory: $KERNEL_DIR"
           
           echo "=== Step 2: Applying macOS In-Tree Patches ==="
-          # Apply APFS case-insensitivity fix to scripts/Kbuild.include
-          if [ -f "$KERNEL_DIR/scripts/Kbuild.include" ]; then
-            sed -i '' 's/kbuild-file = $(or $(wildcard $(src)\/Kbuild),$(src)\/Makefile)/kbuild-file = $(or $(if $(wildcard $(src)\/Kbuild\/.),,$(wildcard $(src)\/Kbuild)),$(src)\/Makefile)/g' "$KERNEL_DIR/scripts/Kbuild.include" || true
-          fi
-          
-          # Apply BSD sed fix to gen-kernel-hwcaps.sh
-          if [ -f "$KERNEL_DIR/arch/arm64/tools/gen-kernel-hwcaps.sh" ]; then
-            sed -i '' 's/\\+/\\*/g' "$KERNEL_DIR/arch/arm64/tools/gen-kernel-hwcaps.sh" || true
-          fi
+          ./kernel-patch.sh "$KERNEL_DIR"
           
           echo "=== Step 3: Verifying Kernel Configuration (defconfig) ==="
-          ./build.sh --dir "$KERNEL_DIR" --arch arm64 defconfig
+          ./build.sh --dir "$KERNEL_DIR" --arch arm64 -j 4 defconfig
           
           echo "=== Step 4: Verification of Generated .config ==="
           [ -f "$KERNEL_DIR/.config" ]
