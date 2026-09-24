@@ -1,0 +1,64 @@
+name: Apple Silicon macOS CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: macOS Apple Silicon (ARM64) CI
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: |
+          chmod +x mac-configure.sh kernel-get.sh build.sh tests/run_tests.sh tests/test_scripts.sh
+
+      - name: Assess & configure macOS build environment
+        run: |
+          ./mac-configure.sh -y
+
+      - name: Run Test Suite (C Host Headers & Script Tests)
+        run: |
+          # Source updated shell profile to activate toolchain PATH and flags
+          if [ -f "$HOME/.bash_profile" ]; then
+            source "$HOME/.bash_profile"
+          fi
+          ./tests/run_tests.sh
+
+      - name: Integration Test - Kernel Fetch & Defconfig
+        run: |
+          if [ -f "$HOME/.bash_profile" ]; then
+            source "$HOME/.bash_profile"
+          fi
+          
+          echo "=== Step 1: Downloading Stable Linux Kernel ==="
+          ./kernel-get.sh -t stable
+          
+          KERNEL_DIR=$(find . -maxdepth 1 -type d -name "linux-*" | head -n 1)
+          echo "Extracted Kernel Directory: $KERNEL_DIR"
+          
+          echo "=== Step 2: Applying macOS In-Tree Patches ==="
+          # Apply APFS case-insensitivity fix to scripts/Kbuild.include
+          if [ -f "$KERNEL_DIR/scripts/Kbuild.include" ]; then
+            sed -i '' 's/kbuild-file = $(or $(wildcard $(src)\/Kbuild),$(src)\/Makefile)/kbuild-file = $(or $(if $(wildcard $(src)\/Kbuild\/.),,$(wildcard $(src)\/Kbuild)),$(src)\/Makefile)/g' "$KERNEL_DIR/scripts/Kbuild.include" || true
+          fi
+          
+          # Apply BSD sed fix to gen-kernel-hwcaps.sh
+          if [ -f "$KERNEL_DIR/arch/arm64/tools/gen-kernel-hwcaps.sh" ]; then
+            sed -i '' 's/\\+/\\*/g' "$KERNEL_DIR/arch/arm64/tools/gen-kernel-hwcaps.sh" || true
+          fi
+          
+          echo "=== Step 3: Verifying Kernel Configuration (defconfig) ==="
+          ./build.sh --dir "$KERNEL_DIR" --arch arm64 defconfig
+          
+          echo "=== Step 4: Verification of Generated .config ==="
+          [ -f "$KERNEL_DIR/.config" ]
+          echo "Generated .config successfully!"
